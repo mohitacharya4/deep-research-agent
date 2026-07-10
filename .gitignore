@@ -26,4 +26,6 @@ Thumbs.db
 
 # Runs / artifacts
 evals/results/
+backend/runs/
+runs/
 *.log

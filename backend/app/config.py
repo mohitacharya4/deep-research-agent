@@ -49,11 +49,22 @@ class Settings(BaseSettings):
     # ---- Server ----
     cors_origins: str = "http://localhost:5173"
 
+    # ---- Observability ----
+    persist_traces: bool = True
+    trace_dir: str = "runs"
+
+    langsmith_tracing: bool = False
+    langsmith_api_key: str | None = None
+    langsmith_project: str = "deep-research-agent"
+    langsmith_endpoint: str | None = None
+
     @field_validator(
         "anthropic_api_key",
         "judge_provider",
         "judge_model",
         "tavily_api_key",
+        "langsmith_api_key",
+        "langsmith_endpoint",
         mode="before",
     )
     @classmethod

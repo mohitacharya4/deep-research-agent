@@ -7,12 +7,14 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import logging
 import sys
 from typing import Any, Literal, cast
 
 from app.agent.graph import build_graph
 from app.agent.state import ResearchState
 from app.config import get_settings
+from app.telemetry import RunTracer, configure_langsmith, configure_logging
 
 _PHASE_ICON = {"start": "▶", "progress": "·", "complete": "✓"}
 _STREAM_MODES: list[Literal["custom", "values"]] = ["custom", "values"]
@@ -26,7 +28,9 @@ def _force_utf8_output() -> None:
             reconfigure(encoding="utf-8", errors="replace")
 
 
-async def _run(question: str, max_iterations: int | None) -> dict[str, Any]:
+async def _run(
+    question: str, max_iterations: int | None, tracer: RunTracer | None
+) -> dict[str, Any]:
     settings = get_settings()
     graph = build_graph()
     initial: ResearchState = {
@@ -38,6 +42,8 @@ async def _run(question: str, max_iterations: int | None) -> dict[str, Any]:
     async for mode, payload in graph.astream(initial, stream_mode=_STREAM_MODES):
         if mode == "custom":
             event = cast(dict[str, Any], payload)
+            if tracer is not None:
+                tracer.record_step(event)
             icon = _PHASE_ICON.get(str(event.get("phase")), "·")
             node = str(event.get("node", "")).ljust(10)
             tokens = event.get("tokens")
@@ -45,6 +51,9 @@ async def _run(question: str, max_iterations: int | None) -> dict[str, Any]:
             print(f"  {icon} {node} {event.get('message', '')}{suffix}")
         elif mode == "values":
             final_state = cast(dict[str, Any], payload)
+
+    if tracer is not None:
+        tracer.finish(final_state)
     return final_state
 
 
@@ -59,11 +68,35 @@ def main() -> None:
         default=None,
         help="Override the reflection loop budget",
     )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Show INFO-level telemetry logs"
+    )
     args = parser.parse_args()
     question = " ".join(args.question)
 
+    settings = get_settings()
+    configure_logging(logging.INFO if args.verbose else logging.WARNING)
+    if configure_langsmith(settings):
+        print(f"LangSmith tracing: on (project={settings.langsmith_project})")
+
+    model = (
+        settings.ollama_model
+        if settings.llm_provider == "ollama"
+        else settings.anthropic_model
+    )
+    tracer = (
+        RunTracer(
+            question,
+            trace_dir=settings.trace_dir,
+            provider=settings.llm_provider,
+            model=model,
+        )
+        if settings.persist_traces
+        else None
+    )
+
     print(f"\n🔎 Researching: {question}\n")
-    state = asyncio.run(_run(question, args.max_iterations))
+    state = asyncio.run(_run(question, args.max_iterations, tracer))
 
     print("\n" + "=" * 70)
     print(state.get("report", "(no report produced)"))
@@ -75,7 +108,10 @@ def main() -> None:
         for p in problems:
             print(f"  - {p}")
     n_sources = len(state.get("findings", []))
-    print(f"\nTotal tokens: {state.get('total_tokens', 0)} | Sources: {n_sources}\n")
+    print(f"\nTotal tokens: {state.get('total_tokens', 0)} | Sources: {n_sources}")
+    if tracer is not None:
+        print(f"Trace saved to: {tracer.path}")
+    print()
 
 
 if __name__ == "__main__":

@@ -48,6 +48,7 @@ async def _fake_fetch(args: dict[str, Any]) -> FetchedDocument:
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setenv("TAVILY_API_KEY", "test-key")
+    monkeypatch.setenv("PERSIST_TRACES", "false")  # don't write trace files during tests
     monkeypatch.setattr("app.agent.nodes.get_llm", lambda **_: _FakeLLM())
     tools = {"web_search": _FakeTool(_fake_search), "web_fetch": _FakeTool(_fake_fetch)}
     monkeypatch.setattr("app.agent.nodes.get_tool", lambda name: tools[name])

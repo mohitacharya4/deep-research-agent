@@ -24,11 +24,12 @@ from app import __version__
 from app.agent.graph import build_graph
 from app.agent.state import Finding, ResearchState
 from app.config import get_settings
-from app.telemetry import configure_logging
+from app.telemetry import RunTracer, configure_langsmith, configure_logging
 
 _STREAM_MODES: list[Literal["custom", "values"]] = ["custom", "values"]
 
 configure_logging()
+_LANGSMITH_ON = configure_langsmith(get_settings())
 app = FastAPI(title="Deep Research Agent", version=__version__)
 
 settings = get_settings()
@@ -52,6 +53,8 @@ async def health() -> dict[str, Any]:
             if settings.llm_provider == "ollama"
             else settings.anthropic_model
         ),
+        "persist_traces": settings.persist_traces,
+        "langsmith": _LANGSMITH_ON,
     }
 
 
@@ -73,18 +76,39 @@ async def _research_events(
     question: str, max_iterations: int, request: Request
 ) -> AsyncIterator[dict[str, str]]:
     """Yield SSE events as the research graph runs."""
+    settings = get_settings()
     graph = build_graph()
     initial: ResearchState = {"question": question, "max_iterations": max_iterations}
     final_state: ResearchState = {}
+
+    model = (
+        settings.ollama_model
+        if settings.llm_provider == "ollama"
+        else settings.anthropic_model
+    )
+    tracer = (
+        RunTracer(
+            question,
+            trace_dir=settings.trace_dir,
+            provider=settings.llm_provider,
+            model=model,
+        )
+        if settings.persist_traces
+        else None
+    )
 
     try:
         async for mode, payload in graph.astream(initial, stream_mode=_STREAM_MODES):
             if await request.is_disconnected():
                 return
             if mode == "custom":
+                if tracer is not None:
+                    tracer.record_step(cast(dict[str, Any], payload))
                 yield {"event": "step", "data": json.dumps(payload)}
             elif mode == "values":
                 final_state = cast(ResearchState, payload)
+        if tracer is not None:
+            tracer.finish(cast(dict[str, Any], final_state))
         yield {"event": "report", "data": json.dumps(_report_payload(final_state))}
     except Exception as exc:  # noqa: BLE001 - surface any failure to the client
         yield {"event": "error", "data": json.dumps({"message": str(exc)})}

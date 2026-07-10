@@ -119,6 +119,27 @@ Prints a per-question table (source coverage, keyword recall, judge score) and a
 JSON report under `evals/results/`. The deterministic metrics live in `app/evals/metrics.py` and are
 unit-tested, so scoring logic is covered by CI even though full runs need a live model.
 
+## Observability
+
+Every run is observable at three levels:
+
+- **Live** — each node emits a structured `StepEvent` (with token usage) streamed to the CLI and,
+  in the API, over SSE to the browser timeline.
+- **Persisted** — with `PERSIST_TRACES=true` (default), every run is written to
+  `runs/<timestamp>-<slug>.jsonl`: a `run` header, one `step` line per event, and a final `result`
+  with the report, sources, token totals and duration. No external account needed — grep it, diff it,
+  show it in a PR. The CLI prints the path; `--verbose` also surfaces INFO logs.
+- **LangSmith (opt-in)** — set `LANGSMITH_TRACING=true` + `LANGSMITH_API_KEY` to get a full
+  per-LLM-call / per-graph-step trace UI. LangGraph auto-instruments, so no agent code changes;
+  the app just bridges your `.env` config into the environment LangChain reads. `/health` reports
+  whether it's active.
+
+```jsonc
+// a line from runs/…​.jsonl
+{"type": "step", "node": "reflect", "phase": "complete",
+ "message": "Gaps remain; running 2 follow-up queries", "tokens": 96}
+```
+
 ## Project structure
 
 ```
