@@ -1,0 +1,25 @@
+# Runs the backend API and the frontend (nginx) together.
+#
+# Ollama is expected to run on the host (`ollama serve`); the backend reaches it via
+# host.docker.internal. Copy backend/.env.example to backend/.env and set TAVILY_API_KEY
+# before `docker compose up --build`.
+services:
+  backend:
+    build: ./backend
+    env_file:
+      - ./backend/.env
+    environment:
+      # Point the container at the host's Ollama instead of localhost.
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      CORS_ORIGINS: http://localhost:5173
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
