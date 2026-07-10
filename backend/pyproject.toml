@@ -57,7 +57,7 @@ disallow_untyped_defs = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["trafilatura.*", "langchain_tavily.*"]
+module = ["trafilatura.*", "langchain_tavily.*", "langchain_anthropic.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
