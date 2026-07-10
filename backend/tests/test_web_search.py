@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import importlib
+
 import httpx
 import pytest
 import respx
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.tools.web_search import TAVILY_ENDPOINT, web_search
 
 
@@ -37,8 +39,14 @@ async def test_web_search_parses_and_filters_results(monkeypatch: pytest.MonkeyP
 
 @pytest.mark.asyncio
 async def test_web_search_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Force keyless settings that ignore any local .env, so the test is hermetic.
     monkeypatch.delenv("TAVILY_API_KEY", raising=False)
-    get_settings.cache_clear()
+    keyless = Settings(_env_file=None, tavily_api_key=None)  # type: ignore[call-arg]
+
+    # Resolve the module explicitly: the app.tools package re-exports a web_search
+    # function that shadows the submodule for attribute lookups.
+    web_search_module = importlib.import_module("app.tools.web_search")
+    monkeypatch.setattr(web_search_module, "get_settings", lambda: keyless)
 
     with pytest.raises(RuntimeError, match="TAVILY_API_KEY"):
         await web_search("q")

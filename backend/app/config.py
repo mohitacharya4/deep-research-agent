@@ -9,7 +9,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LLMProvider = Literal["ollama", "anthropic"]
@@ -48,6 +48,20 @@ class Settings(BaseSettings):
 
     # ---- Server ----
     cors_origins: str = "http://localhost:5173"
+
+    @field_validator(
+        "anthropic_api_key",
+        "judge_provider",
+        "judge_model",
+        "tavily_api_key",
+        mode="before",
+    )
+    @classmethod
+    def _blank_to_none(cls, value: object) -> object:
+        """Treat empty/whitespace env values (e.g. ``JUDGE_PROVIDER=``) as unset."""
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
     @property
     def cors_origin_list(self) -> list[str]:
