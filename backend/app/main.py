@@ -24,9 +24,11 @@ from app import __version__
 from app.agent.graph import build_graph
 from app.agent.state import Finding, ResearchState
 from app.config import get_settings
+from app.telemetry import configure_logging
 
 _STREAM_MODES: list[Literal["custom", "values"]] = ["custom", "values"]
 
+configure_logging()
 app = FastAPI(title="Deep Research Agent", version=__version__)
 
 settings = get_settings()

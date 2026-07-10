@@ -1,0 +1,8 @@
+{"question": "What are the main tradeoffs between RAG and fine-tuning for LLM applications in 2025?", "must_include": ["retrieval", "fine-tuning", "cost"]}
+{"question": "How does LangGraph differ from vanilla LangChain for building agents?", "must_include": ["state", "graph", "agent"]}
+{"question": "What are the current best small local LLMs that support reliable tool calling?", "must_include": ["tool", "local", "model"]}
+{"question": "What is Model Context Protocol (MCP) and what problem does it solve?", "must_include": ["context", "tools", "protocol"]}
+{"question": "What are the leading vector databases in 2025 and how do they compare?", "must_include": ["vector", "embedding", "search"]}
+{"question": "What techniques reduce hallucination in retrieval-augmented generation systems?", "must_include": ["citation", "retrieval", "grounding"]}
+{"question": "How do reranking models improve retrieval quality in RAG pipelines?", "must_include": ["rerank", "relevance", "retrieval"]}
+{"question": "What are common strategies for evaluating LLM agents beyond accuracy?", "must_include": ["evaluation", "agent", "metric"]}
