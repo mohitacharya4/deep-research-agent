@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import sys
 from typing import Any, Literal, cast
 
 from app.agent.graph import build_graph
@@ -15,6 +16,14 @@ from app.config import get_settings
 
 _PHASE_ICON = {"start": "▶", "progress": "·", "complete": "✓"}
 _STREAM_MODES: list[Literal["custom", "values"]] = ["custom", "values"]
+
+
+def _force_utf8_output() -> None:
+    """Emit UTF-8 regardless of the console code page (Windows defaults to cp1252)."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
 
 
 async def _run(question: str, max_iterations: int | None) -> dict[str, Any]:
@@ -41,6 +50,7 @@ async def _run(question: str, max_iterations: int | None) -> dict[str, Any]:
 
 def main() -> None:
     """Parse arguments and run the research agent."""
+    _force_utf8_output()
     parser = argparse.ArgumentParser(description="Deep Research Agent (CLI)")
     parser.add_argument("question", nargs="+", help="The research question")
     parser.add_argument(

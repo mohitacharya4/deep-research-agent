@@ -292,7 +292,7 @@ async def synthesize_node(state: ResearchState) -> ResearchState:
         prompts.SYNTHESIZE_USER.format(question=state["question"], sources=sources_block),
     )
 
-    report = body + "\n\n" + _render_sources(findings)
+    report = _strip_trailing_source_list(body) + "\n\n" + _render_sources(findings)
     total_tokens = state.get("total_tokens", 0) + tokens
     emit(
         StepEvent(
@@ -333,6 +333,22 @@ async def critic_node(state: ResearchState) -> ResearchState:
         )
     )
     return {"unsupported_claims": problems}
+
+
+_MODEL_SOURCE_LINE = re.compile(r"^\s*\[\d+\]\s+.*https?://", re.IGNORECASE)
+
+
+def _strip_trailing_source_list(body: str) -> str:
+    """Drop a reference list the model may append despite instructions.
+
+    We only remove *trailing* lines shaped like ``[n] Title — https://…`` (plus blank
+    lines), so inline ``[n]`` citations inside prose are never touched. The canonical
+    Sources section is rendered separately from the findings.
+    """
+    lines = body.rstrip().splitlines()
+    while lines and (not lines[-1].strip() or _MODEL_SOURCE_LINE.match(lines[-1])):
+        lines.pop()
+    return "\n".join(lines).rstrip()
 
 
 def _render_sources(findings: list[Finding]) -> str:
